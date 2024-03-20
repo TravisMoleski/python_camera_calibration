@@ -1,29 +1,44 @@
 import cv2
 import numpy as np
 import glob
+# import yaml
+
+import ruamel.yaml
+
+def format2yaml(data):
+    data = data.squeeze()
+    # Convert NumPy array to byte string
+    byte_string = data.tobytes()
+
+    # Reconstruct the array from the byte string
+    reconstructed_data = np.frombuffer(byte_string, dtype=data.dtype)
+    reconstructed_data = reconstructed_data.reshape(data.shape)
+
+    # Convert NumPy array to YAML
+    return(reconstructed_data.tolist())
 
 
 # Checkboard dimensions
 CHECKERBOARD = (10,7)
-subpix_criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1)
+subpix_criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 1E-6)
+
 calibration_flags = cv2.fisheye.CALIB_RECOMPUTE_EXTRINSIC + cv2.fisheye.CALIB_CHECK_COND + cv2.fisheye.CALIB_FIX_SKEW
+
 objp = np.zeros((1, CHECKERBOARD[0]*CHECKERBOARD[1], 3), np.float32)
+
 objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 
 # Arrays to store object points and image points from all the images.
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
+
  
 images = glob.glob('./images/*.png')
- 
 for fname in images:
     img = cv2.imread(fname)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    # Find the chess board corners
+
     ret, corners = cv2.findChessboardCorners(gray, CHECKERBOARD, None)
-    
-    # If found, add object points, image points (after refining them)
     if ret == True:
         objpoints.append(objp)
         
@@ -36,7 +51,6 @@ for fname in images:
         cv2.waitKey(1)
  
 cv2.destroyAllWindows()
-
 
 # calculate K & D
 N_imm = len(images)
@@ -58,14 +72,13 @@ retval, K, D, rvecs, tvecs = cv2.fisheye.calibrate(
 
 print(K)
 print(D)
+print(np.hstack((K, np.zeros((K.shape[0], 1), dtype=K.dtype))))
 balance = 1
 for fname in glob.glob("./images/*.png"):
     img = cv2.imread(fname)
     img_dim = img.shape[:2][::-1]  
 
-    DIM = (1280,720)
-
-    scaled_K = K * img_dim[0] / DIM[0]  
+    scaled_K = K * img_dim[0] / img_dim[0]  
     scaled_K[2][2] = 1.0  
     new_K = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(scaled_K, D,
         img_dim, np.eye(3), balance=balance)
@@ -76,3 +89,40 @@ for fname in glob.glob("./images/*.png"):
 
     cv2.imshow('img', undist_image)
     cv2.waitKey(1)
+
+j_dict = {
+    'camera_name': "usb_cam",
+    'image_width':  img_dim[0],
+    'image_height': img_dim[1],
+    "distortion_model": 'equidistant',
+    'camera_matrix': {
+        "rows": K.shape[0],
+        "cols": K.shape[1],
+        "data": format2yaml(K)
+    },
+    'distortion_coefficients': {
+        "rows": D.shape[0],
+        "cols": D.shape[1],
+        "data": format2yaml(D)
+    },
+    "rectification_matrix":{
+    "rows": 3,
+    "cols": 3,
+    "data": format2yaml(np.eye(3))},
+    "projection_matrix":{
+        "rows": 3,
+        "cols": 4,
+        "data": format2yaml(np.hstack((K, np.zeros((K.shape[0], 1), dtype=K.dtype))))
+    }
+
+}
+print(j_dict)
+
+yaml = ruamel.yaml.YAML()
+yaml.indent(mapping=4, sequence=6, offset=3)
+yaml.preserve_quotes = False
+yaml.default_flow_style = None
+yaml.default_style = None
+
+with open('calibrate_kb.yaml', 'w') as outfile:
+    yaml.dump(j_dict, outfile)
