@@ -32,9 +32,10 @@ objp[0,:,:2] = np.mgrid[0:CHECKERBOARD[0], 0:CHECKERBOARD[1]].T.reshape(-1, 2)
 objpoints = [] # 3d point in real world space
 imgpoints = [] # 2d points in image plane.
 
- 
-images = glob.glob('./images/*.png')
+i_count = 0 
+images = sorted(glob.glob('./images/*.png'))
 for fname in images:
+    print(fname)
     img = cv2.imread(fname)
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
@@ -44,11 +45,12 @@ for fname in images:
         
         corners2 = cv2.cornerSubPix(gray,corners,(3,3),(-1,-1),subpix_criteria)
         imgpoints.append(corners2)
+        i_count += 1
         
         # Draw and display the corners
-        cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
-        cv2.imshow('img', img)
-        cv2.waitKey(1)
+        # cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
+        # cv2.imshow('img', img)
+        # cv2.waitKey(1)
  
 cv2.destroyAllWindows()
 
@@ -75,6 +77,7 @@ print(D)
 print(np.hstack((K, np.zeros((K.shape[0], 1), dtype=K.dtype))))
 balance = 1
 for fname in glob.glob("./images/*.png"):
+    print(fname)
     img = cv2.imread(fname)
     img_dim = img.shape[:2][::-1]  
 
@@ -113,7 +116,9 @@ j_dict = {
         "rows": 3,
         "cols": 4,
         "data": format2yaml(np.hstack((K, np.zeros((K.shape[0], 1), dtype=K.dtype))))
-    }
+    },
+    "reprojectionError": None,
+    "images_used": i_count
 
 }
 print(j_dict)
