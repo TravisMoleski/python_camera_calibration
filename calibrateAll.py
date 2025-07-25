@@ -48,9 +48,12 @@ for fname in images:
         i_count += 1
         
         # Draw and display the corners
-        # cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
-        # cv2.imshow('img', img)
-        # cv2.waitKey(1)
+        cv2.drawChessboardCorners(img, CHECKERBOARD, corners2, ret)
+        cv2.imshow('img', img)
+        cv2.waitKey(1)
+    
+    # if i_count > 40:
+    #     break
  
 cv2.destroyAllWindows()
 
